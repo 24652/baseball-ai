@@ -1,621 +1,216 @@
-<!DOCTYPE html>
+html = r'''<!DOCTYPE html>
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-
-<title>AI Baseball Pitch Analyzer</title>
-
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Pitch Vision AI</title>
 <style>
-* {
-    box-sizing: border-box;
-}
-
-body {
-    margin: 0;
-    background: #080b10;
-    color: white;
-    font-family: Arial, sans-serif;
-    overflow: hidden;
-}
-
-header {
-    height: 58px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 16px;
-    background: #11161e;
-    border-bottom: 1px solid #252c36;
-}
-
-header h1 {
-    margin: 0;
-    font-size: 17px;
-}
-
-.status {
-    font-size: 12px;
-    color: #7ee787;
-}
-
-#cameraArea {
-    position: relative;
-    width: 100vw;
-    height: calc(100vh - 130px);
-    overflow: hidden;
-    background: black;
-}
-
-#video {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-#canvas {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    left: 0;
-    top: 0;
-    pointer-events: none;
-}
-
-#info {
-    position: absolute;
-    left: 12px;
-    top: 12px;
-    padding: 10px 12px;
-    border-radius: 10px;
-    background: rgba(0,0,0,.65);
-    backdrop-filter: blur(5px);
-    font-size: 13px;
-    line-height: 1.7;
-}
-
-#controls {
-    position: fixed;
-    bottom: 0;
-    width: 100%;
-    height: 72px;
-    background: #11161e;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    padding: 10px;
-}
-
-button {
-    border: 0;
-    border-radius: 12px;
-    padding: 12px 16px;
-    background: #246bfd;
-    color: white;
-    font-size: 14px;
-    font-weight: bold;
-}
-
-button.secondary {
-    background: #252c36;
-}
-
-button.active {
-    background: #e53935;
-}
-
-#loading {
-    position: fixed;
-    inset: 0;
-    background: #080b10;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 20;
-    font-size: 18px;
-}
-
-.hidden {
-    display: none !important;
-}
+:root{--bg:#071019;--panel:#0d1722;--line:#263646;--green:#20e58a;--blue:#4da3ff;--yellow:#ffd43b;--red:#ff5364;--text:#eef5fb;--muted:#8ea2b4}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;overflow:hidden}
+.app{height:100dvh;display:flex;flex-direction:column}
+.top{height:58px;background:#0b141e;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 14px;flex:none}
+.title{font-weight:800;font-size:16px}.sub{font-size:10px;color:var(--muted);margin-top:2px}
+.status{font-size:11px;color:var(--green)}
+.stage{position:relative;flex:1;min-height:0;background:#000;overflow:hidden}
+video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+#overlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.hud{position:absolute;left:10px;top:10px;display:grid;grid-template-columns:1fr 1fr;gap:6px;z-index:3}
+.card{min-width:105px;background:rgba(5,10,15,.72);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:7px 9px;backdrop-filter:blur(8px)}
+.label{font-size:9px;color:var(--muted)}.value{font-size:16px;font-weight:800;margin-top:1px}.unit{font-size:9px;color:var(--muted);font-weight:500}
+.result{position:absolute;right:10px;top:10px;z-index:3;background:rgba(5,10,15,.72);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:8px 10px;min-width:112px}
+.result b{font-size:14px}.result small{display:block;color:var(--muted);font-size:9px;margin-top:3px}
+.bottom{background:#0b141e;border-top:1px solid var(--line);padding:8px 9px calc(8px + env(safe-area-inset-bottom));flex:none}
+.row{display:flex;gap:7px;overflow:auto}
+button{border:0;border-radius:10px;background:#172535;color:white;padding:10px 11px;font-weight:700;font-size:11px;white-space:nowrap}
+button.primary{background:#e43f4e}button.on{background:#155b43}button.blue{background:#15518b}
+.panel{display:none;background:#0b141e;border-top:1px solid var(--line);padding:10px;max-height:42dvh;overflow:auto}
+.panel.open{display:block}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.field{background:#101e2b;border:1px solid var(--line);border-radius:9px;padding:8px}
+.field label{display:block;font-size:9px;color:var(--muted);margin-bottom:5px}
+input,select{width:100%;background:#071019;color:#fff;border:1px solid #304253;border-radius:7px;padding:8px}
+.note{font-size:10px;color:var(--muted);line-height:1.45;margin:8px 2px}
+#file{display:none}
 </style>
 </head>
-
 <body>
+<div class="app">
+  <header class="top">
+    <div><div class="title">⚾ Pitch Vision AI</div><div class="sub">탁구공 야구 · 영상 투구 분석</div></div>
+    <div id="status" class="status">대기</div>
+  </header>
 
-<div id="loading">
-    AI 분석 준비 중...
-</div>
-
-<header>
-    <h1>⚾ AI Baseball Analyzer</h1>
-    <div class="status" id="status">준비 중</div>
-</header>
-
-<div id="cameraArea">
-
+  <main class="stage" id="stage">
     <video id="video" autoplay muted playsinline></video>
+    <canvas id="overlay"></canvas>
 
-    <canvas id="canvas"></canvas>
-
-    <div id="info">
-        <div>구속: <b id="speed">--</b> km/h</div>
-        <div>상태: <b id="analysis">카메라 대기</b></div>
+    <div class="hud">
+      <div class="card"><div class="label">구속</div><div class="value" id="speed">-- <span class="unit">km/h</span></div></div>
+      <div class="card"><div class="label">스트라이크</div><div class="value" id="zoneResult">--</div></div>
+      <div class="card"><div class="label">낙차</div><div class="value" id="drop">-- <span class="unit">cm</span></div></div>
+      <div class="card"><div class="label">좌우 변화</div><div class="value" id="side">-- <span class="unit">cm</span></div></div>
     </div>
 
+    <div class="result">
+      <b id="phase">투구 대기</b>
+      <small id="hint">카메라를 시작하세요</small>
+    </div>
+  </main>
+
+  <section class="panel" id="settings">
+    <div class="grid">
+      <div class="field"><label>실제 투구 거리 (m)</label><input id="distance" type="number" step="0.1" value="9"></div>
+      <div class="field"><label>프레임 기준</label><select id="fps"><option value="60">60 fps</option><option value="30">30 fps</option><option value="120">120 fps</option></select></div>
+      <div class="field"><label>스트라이크존 너비 (cm)</label><input id="zoneW" type="number" value="43.2"></div>
+      <div class="field"><label>스트라이크존 높이 (cm)</label><input id="zoneH" type="number" value="55"></div>
+    </div>
+    <p class="note">정확한 구속/낙차를 얻으려면 카메라 위치를 고정하고 실제 거리와 촬영 프레임률을 맞춰 주세요. 현재 공 분석은 탁구공에 맞춘 영상 기반 추정입니다.</p>
+  </section>
+
+  <div class="bottom">
+    <div class="row">
+      <button id="cameraBtn" class="primary">📷 카메라 시작</button>
+      <button id="recordBtn">● 투구 분석</button>
+      <button id="zoneBtn" class="on">▣ 존</button>
+      <button id="poseBtn" class="on">♙ 폼선</button>
+      <button id="trackBtn" class="on">⚾ 공 추적</button>
+      <button id="settingsBtn">⚙ 설정</button>
+      <button id="uploadBtn">🎞 영상 분석</button>
+      <input id="file" type="file" accept="video/*">
+    </div>
+  </div>
 </div>
 
-<div id="controls">
-
-    <button id="cameraBtn">
-        📷 카메라 시작
-    </button>
-
-    <button id="zoneBtn" class="secondary">
-        🟩 스트라이크존
-    </button>
-
-    <button id="trackBtn" class="secondary">
-        ⚾ 궤적
-    </button>
-
-</div>
-
-
-<!-- MediaPipe Pose -->
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-
 <script>
+const video=document.getElementById('video'), canvas=document.getElementById('overlay'), ctx=canvas.getContext('2d');
+const statusEl=document.getElementById('status'), phaseEl=document.getElementById('phase'), hintEl=document.getElementById('hint');
+const speedEl=document.getElementById('speed'), zoneEl=document.getElementById('zoneResult'), dropEl=document.getElementById('drop'), sideEl=document.getElementById('side');
+let stream=null, running=false, showZone=true, showPose=true, showTrack=true, analyzing=false;
+let ballHistory=[], lastBall=null, lastBallTime=0, pitchStart=null, pitchEnd=null, pitchStartT=0, pitchEndT=0;
+let zone={x:0.385,y:0.34,w:0.23,h:0.30}; // baseball-like, wider/shorter than previous
+let poseResults=null;
 
-const video = document.getElementById("video");
-const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
+function resize(){canvas.width=video.videoWidth||1280;canvas.height=video.videoHeight||720}
+window.addEventListener('resize',resize);
 
-const cameraBtn = document.getElementById("cameraBtn");
-const zoneBtn = document.getElementById("zoneBtn");
-const trackBtn = document.getElementById("trackBtn");
-
-const statusText = document.getElementById("status");
-const analysisText = document.getElementById("analysis");
-const speedText = document.getElementById("speed");
-
-let camera = null;
-let zoneEnabled = true;
-let trackingEnabled = true;
-
-let trajectory = [];
-
-
-// -----------------------------
-// 캔버스 크기
-// -----------------------------
-
-function resizeCanvas() {
-
-    canvas.width = video.videoWidth || window.innerWidth;
-    canvas.height = video.videoHeight || window.innerHeight;
-
+function drawZone(){
+ if(!showZone)return;
+ const w=canvas.width,h=canvas.height,x=w*zone.x,y=h*zone.y,zw=w*zone.w,zh=h*zone.h;
+ ctx.save();
+ ctx.strokeStyle='#20e58a';ctx.lineWidth=Math.max(3,w/500);ctx.strokeRect(x,y,zw,zh);
+ ctx.strokeStyle='rgba(255,255,255,.28)';ctx.lineWidth=1;
+ ctx.beginPath();ctx.moveTo(x+zw/2,y);ctx.lineTo(x+zw/2,y+zh);ctx.moveTo(x,y+zh/2);ctx.lineTo(x+zw,y+zh/2);ctx.stroke();
+ ctx.restore();
 }
-
-window.addEventListener("resize", resizeCanvas);
-
-
-// -----------------------------
-// 스트라이크존
-// -----------------------------
-
-function drawStrikeZone() {
-
-    if (!zoneEnabled) return;
-
-    const w = canvas.width;
-    const h = canvas.height;
-
-    // 화면 중앙을 기준으로 가상 스트라이크존
-    const zoneWidth = w * 0.25;
-    const zoneHeight = h * 0.38;
-
-    const x = (w - zoneWidth) / 2;
-    const y = h * 0.30;
-
-    ctx.save();
-
-    ctx.strokeStyle = "#00ff88";
-    ctx.lineWidth = 4;
-
-    ctx.strokeRect(
-        x,
-        y,
-        zoneWidth,
-        zoneHeight
-    );
-
-    ctx.fillStyle = "rgba(0,255,136,0.06)";
-    ctx.fillRect(
-        x,
-        y,
-        zoneWidth,
-        zoneHeight
-    );
-
-    ctx.restore();
+const links=[[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24],[23,25],[25,27],[24,26],[26,28]];
+function drawPose(){
+ if(!showPose||!poseResults?.poseLandmarks)return;
+ const p=poseResults.poseLandmarks;
+ ctx.save();ctx.strokeStyle='#4da3ff';ctx.fillStyle='#fff';ctx.lineWidth=Math.max(3,canvas.width/500);
+ for(const [a,b] of links){if(!p[a]||!p[b])continue;ctx.beginPath();ctx.moveTo(p[a].x*canvas.width,p[a].y*canvas.height);ctx.lineTo(p[b].x*canvas.width,p[b].y*canvas.height);ctx.stroke()}
+ for(const q of p){if(q.visibility<.5)continue;ctx.beginPath();ctx.arc(q.x*canvas.width,q.y*canvas.height,Math.max(3,canvas.width/180),0,Math.PI*2);ctx.fill()}
+ ctx.restore();
 }
-
-
-// -----------------------------
-// 관절 연결선
-// -----------------------------
-
-const connections = [
-
-    [11,12],
-
-    [11,13],
-    [13,15],
-
-    [12,14],
-    [14,16],
-
-    [11,23],
-    [12,24],
-
-    [23,24],
-
-    [23,25],
-    [25,27],
-
-    [24,26],
-    [26,28]
-
-];
-
-
-// -----------------------------
-// Pose 결과
-// -----------------------------
-
-function onResults(results) {
-
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-
-    ctx.clearRect(
-        0,
-        0,
-        canvas.width,
-        canvas.height
-    );
-
-    drawStrikeZone();
-
-    if (
-        results.poseLandmarks &&
-        results.poseLandmarks.length > 0
-    ) {
-
-        const points = results.poseLandmarks;
-
-        ctx.strokeStyle = "#00aaff";
-        ctx.fillStyle = "#ffffff";
-
-        ctx.lineWidth = 5;
-
-        // 관절 연결
-        for (const connection of connections) {
-
-            const a = points[connection[0]];
-            const b = points[connection[1]];
-
-            if (!a || !b) continue;
-
-            ctx.beginPath();
-
-            ctx.moveTo(
-                a.x * canvas.width,
-                a.y * canvas.height
-            );
-
-            ctx.lineTo(
-                b.x * canvas.width,
-                b.y * canvas.height
-            );
-
-            ctx.stroke();
-        }
-
-
-        // 관절 점
-        for (const p of points) {
-
-            if (p.visibility < 0.5) continue;
-
-            ctx.beginPath();
-
-            ctx.arc(
-                p.x * canvas.width,
-                p.y * canvas.height,
-                6,
-                0,
-                Math.PI * 2
-            );
-
-            ctx.fill();
-        }
-
-        analysisText.textContent = "폼 분석 중";
-    }
-
-    // 공 궤적
-    if (trackingEnabled && trajectory.length > 1) {
-
-        ctx.save();
-
-        ctx.strokeStyle = "#ffd600";
-        ctx.lineWidth = 5;
-
-        ctx.beginPath();
-
-        trajectory.forEach((p, i) => {
-
-            if (i === 0) {
-
-                ctx.moveTo(
-                    p.x,
-                    p.y
-                );
-
-            } else {
-
-                ctx.lineTo(
-                    p.x,
-                    p.y
-                );
-
-            }
-
-        });
-
-        ctx.stroke();
-
-        ctx.restore();
-    }
+function drawTrack(){
+ if(!showTrack||ballHistory.length<2)return;
+ ctx.save();ctx.strokeStyle='#ffd43b';ctx.lineWidth=Math.max(4,canvas.width/320);ctx.lineCap='round';ctx.beginPath();
+ ballHistory.forEach((p,i)=>{if(i)ctx.lineTo(p.x,p.y);else ctx.moveTo(p.x,p.y)});ctx.stroke();
+ const q=ballHistory[ballHistory.length-1];ctx.fillStyle='#ffd43b';ctx.beginPath();ctx.arc(q.x,q.y,Math.max(7,canvas.width/80),0,Math.PI*2);ctx.fill();ctx.restore();
 }
-
-
-// -----------------------------
-// MediaPipe Pose
-// -----------------------------
-
-const pose = new Pose({
-
-    locateFile: (file) => {
-
-        return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
-
-    }
-
-});
-
-
-pose.setOptions({
-
-    modelComplexity: 1,
-
-    smoothLandmarks: true,
-
-    enableSegmentation: false,
-
-    minDetectionConfidence: 0.5,
-
-    minTrackingConfidence: 0.5
-
-});
-
-
-pose.onResults(onResults);
-
-
-// -----------------------------
-// 카메라 시작
-// -----------------------------
-
-async function startCamera() {
-
-    try {
-
-        statusText.textContent = "카메라 요청 중";
-
-        const stream = await navigator.mediaDevices.getUserMedia({
-
-            video: {
-                facingMode: "environment",
-                width: {
-                    ideal: 1280
-                },
-                height: {
-                    ideal: 720
-                }
-            },
-
-            audio: false
-
-        });
-
-        video.srcObject = stream;
-
-        await video.play();
-
-        statusText.textContent = "카메라 작동 중";
-
-        analysisText.textContent = "사람을 찾는 중";
-
-        cameraBtn.textContent = "🔴 촬영 중";
-
-        cameraBtn.classList.add("active");
-
-        resizeCanvas();
-
-        processVideo();
-
-    } catch (error) {
-
-        console.error(error);
-
-        statusText.textContent = "카메라 오류";
-
-        analysisText.textContent =
-            "카메라 권한을 허용해주세요.";
-
-    }
-
+function redraw(){ctx.clearRect(0,0,canvas.width,canvas.height);drawZone();drawPose();drawTrack()}
+function detectBall(){
+ // Bright compact blob tracker. Tuned for a white/light ping-pong ball.
+ const w=canvas.width,h=canvas.height;
+ const small=document.createElement('canvas');small.width=320;small.height=Math.max(180,Math.round(320*h/w));
+ const sctx=small.getContext('2d',{willReadFrequently:true});sctx.drawImage(video,0,0,small.width,small.height);
+ const img=sctx.getImageData(0,0,small.width,small.height).data;
+ let best=null,bestScore=0;
+ const step=3;
+ for(let y=4;y<small.height-4;y+=step)for(let x=4;x<small.width-4;x+=step){
+   const i=(y*small.width+x)*4,r=img[i],g=img[i+1],b=img[i+2];
+   const bright=(r+g+b)/3, spread=Math.max(r,g,b)-Math.min(r,g,b);
+   if(bright<205||spread>45)continue;
+   let score=bright;
+   if(lastBall){const px=lastBall.x/canvas.width*small.width,py=lastBall.y/canvas.height*small.height;const d=Math.hypot(x-px,y-py);score*=Math.max(.15,1-d/100)}
+   if(score>bestScore){bestScore=score;best={x:x/small.width*w,y:y/small.height*h}}
+ }
+ if(bestScore>180)return best;
+ return null;
 }
-
-
-// -----------------------------
-// 영상 분석
-// -----------------------------
-
-let processing = false;
-
-async function processVideo() {
-
-    if (processing) return;
-
-    processing = true;
-
-    async function loop() {
-
-        if (
-            video.readyState >= 2 &&
-            !video.paused
-        ) {
-
-            try {
-
-                await pose.send({
-                    image: video
-                });
-
-            } catch (e) {
-
-                console.log(e);
-
-            }
-
-        }
-
-        requestAnimationFrame(loop);
-
-    }
-
-    loop();
-
+function updateMetrics(){
+ if(ballHistory.length<3)return;
+ const fps=Number(document.getElementById('fps').value);
+ const pts=ballHistory;
+ const first=pts[0],last=pts[pts.length-1];
+ const px=Math.hypot(last.x-first.x,last.y-first.y);
+ const dt=(pts.length-1)/fps;
+ const distM=Number(document.getElementById('distance').value)||9;
+ const speed=distM/dt*3.6;
+ if(isFinite(speed)&&speed<300)speedEl.innerHTML=Math.round(speed*10)/10+' <span class="unit">km/h</span>';
+ const dy=last.y-first.y;
+ const dx=last.x-first.x;
+ dropEl.innerHTML=Math.round(Math.abs(dy)/(canvas.height||720)*distM*1000)/10+' <span class="unit">cm</span>';
+ sideEl.innerHTML=Math.round(Math.abs(dx)/(canvas.width||1280)*distM*1000)/10+' <span class="unit">cm</span>';
+ const zx=canvas.width*zone.x,zy=canvas.height*zone.y,zw=canvas.width*zone.w,zh=canvas.height*zone.h;
+ const inside=last.x>=zx&&last.x<=zx+zw&&last.y>=zy&&last.y<=zy+zh;
+ zoneEl.textContent=inside?'STRIKE':'BALL';
 }
+async function startCamera(){
+ try{
+  stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false});
+  video.srcObject=stream;await video.play();resize();running=true;statusEl.textContent='카메라 작동 중';phaseEl.textContent='투구 대기';hintEl.textContent='투구 분석 버튼을 누르세요';cameraBtn.textContent='⏹ 카메라 종료';loop();
+ }catch(e){statusEl.textContent='카메라 권한 필요';hintEl.textContent='Safari/Chrome에서 카메라 권한을 허용하세요'}
+}
+function stopCamera(){if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;running=false;cameraBtn.textContent='📷 카메라 시작';statusEl.textContent='대기'}
+async function loop(){
+ if(!running)return;
+ if(video.readyState>=2){
+  const ball=detectBall();
+  if(ball){
+   lastBall=ball;
+   if(analyzing){
+    const now=performance.now();
+    ballHistory.push(ball); if(ballHistory.length>45)ballHistory.shift();
+    if(!pitchStart){pitchStart=ball;pitchStartT=now}
+    pitchEnd=ball;pitchEndT=now;
+    updateMetrics();
+   }
+  }
+  redraw();
+ }
+ requestAnimationFrame(loop);
+}
+function startAnalysis(){
+ if(!running){hintEl.textContent='먼저 카메라를 시작하세요';return}
+ analyzing=true;ballHistory=[];pitchStart=pitchEnd=null;speedEl.innerHTML='-- <span class="unit">km/h</span>';phaseEl.textContent='공 추적 중';hintEl.textContent='탁구공이 잘 보이게 던지세요';recordBtn.textContent='■ 분석 종료';recordBtn.classList.add('blue')
+}
+function stopAnalysis(){analyzing=false;phaseEl.textContent='분석 완료';hintEl.textContent='궤적과 측정값을 확인하세요';recordBtn.textContent='● 투구 분석';recordBtn.classList.remove('blue');updateMetrics()}
+const pose=new Pose({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}`});
+pose.setOptions({modelComplexity:1,smoothLandmarks:true,enableSegmentation:false,minDetectionConfidence:.5,minTrackingConfidence:.5});
+pose.onResults(r=>{poseResults=r});
+async function poseLoop(){
+ if(!running)return;
+ try{if(video.readyState>=2)await pose.send({image:video})}catch(e){}
+ setTimeout(poseLoop,70);
+}
+cameraBtn.onclick=()=>stream?stopCamera():startCamera();
+recordBtn.onclick=()=>analyzing?stopAnalysis():startAnalysis();
+zoneBtn.onclick=()=>{showZone=!showZone;zoneBtn.classList.toggle('on',showZone)};
+poseBtn.onclick=()=>{showPose=!showPose;poseBtn.classList.toggle('on',showPose)};
+trackBtn.onclick=()=>{showTrack=!showTrack;trackBtn.classList.toggle('on',showTrack)};
+document.getElementById('settingsBtn').onclick=()=>document.getElementById('settings').classList.toggle('open');
+document.getElementById('uploadBtn').onclick=()=>document.getElementById('file').click();
+document.getElementById('file').onchange=e=>{const f=e.target.files[0];if(!f)return;video.srcObject=null;video.src=URL.createObjectURL(f);video.loop=true;video.play();resize();running=true;statusEl.textContent='영상 분석 중';hintEl.textContent='재생 영상에서 공을 추적합니다';loop();poseLoop()};
 
-
-// -----------------------------
-// 버튼
-// -----------------------------
-
-cameraBtn.addEventListener(
-    "click",
-    startCamera
-);
-
-
-zoneBtn.addEventListener(
-    "click",
-    () => {
-
-        zoneEnabled = !zoneEnabled;
-
-        zoneBtn.classList.toggle(
-            "active",
-            zoneEnabled
-        );
-
-    }
-);
-
-
-trackBtn.addEventListener(
-    "click",
-    () => {
-
-        trackingEnabled = !trackingEnabled;
-
-        if (!trackingEnabled) {
-
-            trajectory = [];
-
-        }
-
-        trackBtn.classList.toggle(
-            "active",
-            trackingEnabled
-        );
-
-    }
-);
-
-
-// -----------------------------
-// 화면 터치로 공 궤적 테스트
-// -----------------------------
-//
-// 지금 버전에서는 화면을 터치하면
-// 탁구공 위치를 직접 지정해서
-// 궤적선을 테스트할 수 있다.
-//
-// 다음 버전에서 자동 공 인식으로 교체.
-//
-
-canvas.addEventListener(
-    "click",
-    (event) => {
-
-        const rect =
-            canvas.getBoundingClientRect();
-
-        const x =
-            (event.clientX - rect.left)
-            * canvas.width
-            / rect.width;
-
-        const y =
-            (event.clientY - rect.top)
-            * canvas.height
-            / rect.height;
-
-        trajectory.push({
-            x: x,
-            y: y
-        });
-
-        if (trajectory.length > 30) {
-
-            trajectory.shift();
-
-        }
-
-    }
-);
-
-
-// -----------------------------
-// 시작
-// -----------------------------
-
-document
-    .getElementById("loading")
-    .classList.add("hidden");
-
-statusText.textContent = "준비 완료";
-
+// Start pose processing after camera/video is ready.
+setInterval(()=>{if(running)poseLoop()},1800);
 </script>
-
 </body>
-</html>
+</html>'''
+
+path="/mnt/data/index.html"
+with open(path,"w",encoding="utf-8") as f:
+    f.write(html)
+print(path)
